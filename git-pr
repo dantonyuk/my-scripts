@@ -1,0 +1,17 @@
+#!/bin/bash
+
+if [[ "${BROWSER}" == "" ]]
+then
+    echo "Please define BROWSER environment variable"
+    exit 1
+fi
+
+usage() {
+  echo "Usage: git pr"
+}
+
+ORIGIN=${1:-master}
+REPO=$(git config remote.origin.url | sed -e 's/^.*:\(.*\).git$/\1/')
+BRANCH=$(git branch --show-current)
+#"${BROWSER}" "https://github.com/${REPO}/pull/new/${BRANCH}"
+"${BROWSER}" "https://github.com/${REPO}/compare/${ORIGIN}...${BRANCH}?expand=1"

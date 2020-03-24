@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -e
+
+if [[ -z $1 ]]
+then
+    echo "Use: $0 NEW-BRANCH-NAME [START-POINT]"
+    exit 1
+fi
+
+NEW_BRANCH=$1
+START_POINT=${2:-master}
+
+git checkout ${START_POINT}
+git pull --all
+git checkout -b ${NEW_BRANCH}
+git push --set-upstream origin ${NEW_BRANCH}

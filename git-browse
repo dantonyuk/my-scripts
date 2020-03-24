@@ -1,0 +1,56 @@
+#!/bin/bash
+
+if [[ "${BROWSER}" == "" ]]
+then
+    echo "Please define BROWSER environment variable"
+    exit 1
+fi
+
+usage() {
+  echo "Usage: git browse COMMAND"
+  echo ""
+  echo "Commands:"
+  echo "  issue           Browse an issue current branch is related to"
+  echo "  repo|repository Browse Git repository on GitHub site"
+  echo "  branch          Browse current branch on GitHub site"
+  echo "  pr|pull-request Browse a PR related to current branch"
+}
+
+browse_issue() {
+  BRANCH=$(git branch --show-current)
+  "${BROWSER}" "https://flipswap.jira.com/browse/${BRANCH}"
+}
+
+browse_repository() {
+  REPO=$(git config remote.origin.url | sed -e 's/^.*:\(.*\).git$/\1/')
+  "${BROWSER}" "https://github.com/${REPO}"
+}
+
+browse_branch() {
+  REPO=$(git config remote.origin.url | sed -e 's/^.*:\(.*\).git$/\1/')
+  BRANCH=$(git branch --show-current)
+  "${BROWSER}" "https://github.com/${REPO}/tree/${BRANCH}"
+}
+
+browse_pullrequest() {
+    echo "Not yet implemented"
+    exit 1
+}
+
+case $1 in
+''|issue)
+  browse_issue
+  ;;
+repo|repository)
+  browse_repository
+  ;;
+branch)
+  browse_branch
+  ;;
+pr|pull-request)
+  browse_pullrequest
+  ;;
+*)
+  usage
+  ;;
+esac

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -e
+
+BRANCH="$1"
+if [ "${BRANCH}" == "" ]
+then
+    BRANCH=$(git branch --show-current)
+fi
+
+if [ "${BRANCH}" == "master" ]
+then
+    echo "Can't remove master branch"
+    exit 1
+fi
+
+git checkout master
+git pull --all
+
+git branch -D ${BRANCH}
+
+set +e
+git push origin --delete ${BRANCH}
