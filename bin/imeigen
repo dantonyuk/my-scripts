@@ -1,0 +1,38 @@
+#!/usr/bin/python3
+
+import math
+from random import random
+
+def imei_gen():
+    l = 15
+    digits = [0] * l
+    rbi = ["01", "10", "30", "33", "35", "44", "45", "49", "50", "51", "52", "53", "54", "86", "91", "98", "99"]
+    arr = rbi[math.floor(random() * len(rbi))]
+    digits[0] = int(arr[0])
+    digits[1] = int(arr[1])
+
+    pos = 2
+    while pos < l - 1:
+        digits[pos] = math.floor(random() * 10) % 10
+        pos += 1
+
+    len_offset = (l + 1) % 2
+    t = 0
+    sum = 0
+    for pos in range(0, l):
+        if (pos + len_offset) % 2:
+            t = digits[pos] * 2
+            if t > 9:
+                t -= 9
+            sum += t
+        else:
+            sum += digits[pos]
+
+    final_digit = (10 - (sum % 10)) % 10
+    digits[l - 1] = final_digit
+    t = ''.join(map(str, digits))
+    t = t[:l]
+    return t
+
+if __name__ == "__main__":
+    print(imei_gen())
