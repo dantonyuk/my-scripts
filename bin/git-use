@@ -1,0 +1,38 @@
+#!/bin/bash
+
+function usage {
+    echo "Usage: $0 [hyla|mine]"
+}
+
+function switch_to_hyla {
+    ssh-add -d /home/dmitry/.ssh/id_rsa_dagh 2>/dev/null
+    echo "Switched to hyla account"
+}
+
+function switch_to_mine {
+    ssh-add /home/dmitry/.ssh/id_rsa_dagh 2>/dev/null
+    echo "Switched to mine account"
+}
+
+if [[ $# -gt 0 ]]
+then
+    case $1 in
+        hyla)
+            switch_to_hyla
+            ;;
+        mine)
+            switch_to_mine
+            ;;
+        *)
+            usage
+    esac
+else
+    PRESENT=$(ssh-add -l | grep id_rsa_dagh)
+
+    if [[ "$PRESENT" != "" ]]
+    then
+        switch_to_hyla
+    else
+        switch_to_mine
+    fi
+fi
