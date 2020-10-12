@@ -2,10 +2,12 @@
 
 set -e
 
+CURRENT=$(git branch --show-current)
 BRANCH="$1"
+
 if [ "${BRANCH}" == "" ]
 then
-    BRANCH=$(git branch --show-current)
+    BRANCH="${CURRENT}"
 fi
 
 if [ "${BRANCH}" == "master" ]
@@ -21,3 +23,8 @@ git branch -D ${BRANCH}
 
 set +e
 git push origin --delete ${BRANCH}
+
+if [ "${BRANCH}" != "${CURRENT}" ]
+then
+    git checkout "${CURRENT}"
+fi
