@@ -1,0 +1,42 @@
+#!/bin/bash
+
+set -e
+
+if [[ -z $1 ]]
+then
+    echo "Use: $0 NEW-BRANCH-NAME [START-POINT]"
+    exit 1
+fi
+
+TARGET_BRANCH=$1
+START_POINT=${2:-master}
+
+mapfile -t COMMITS < <( git log --oneline | fzf --multi | awk '{ print $1 }' )
+
+if [[ ! -z "${COMMITS}" ]]
+then
+    EXISTS_LOCALLY=$(git branch --list ${TARGET_BRANCH})
+    if [[ -z "${EXISTS_LOCALLY}" ]]
+    then
+        git checkout ${START_POINT}
+        git pull --all
+        git checkout -b ${TARGET_BRANCH}
+        git push --set-upstream origin ${TARGET_BRANCH}
+    else
+        git checkout ${TARGET_BRANCH}
+    fi
+
+    EXISTS_REMOTELY=$(git ls-remote --heads origin ${TARGET_BRANCH})
+    if [[ -z "${EXISTS_REMOTELY}" ]]
+    then
+        git push --set-upstream origin ${TARGET_BRANCH}
+    fi
+
+    echo "Trying to apply commits:"
+    echo ${COMMITS[@]}
+
+    for COMMIT in ${COMMITS[@]}
+    do
+        git cherry-pick $COMMIT
+    done
+fi
