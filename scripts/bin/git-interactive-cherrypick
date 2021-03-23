@@ -4,14 +4,21 @@ set -e
 
 if [[ -z $1 ]]
 then
-    echo "Use: $0 NEW-BRANCH-NAME [START-POINT]"
+    echo "Use: $0 TARGET_BRANCH [START-POINT]"
     exit 1
 fi
 
 TARGET_BRANCH=$1
 START_POINT=${2:-master}
 
-mapfile -t COMMITS < <( git log --oneline | fzf --multi | awk '{ print $1 }' )
+mapfile -t COMMITS < <( git log --date=short --format="%C(green)%C(bold)%cd %C(auto)%h%d %s (%an)" --graph --color=always | \
+    fzf --multi --height 50% --ansi --no-sort --reverse \
+    --bind='ctrl-/:toggle-preview' \
+    --preview 'grep -o "[a-f0-9]\{7,\}" <<< {} | xargs git show --color=always | head -'$LINES | \
+    grep -o "[a-f0-9]\{7,\}" | tac)
+
+echo ${COMMITS[@]}
+exit
 
 if [[ ! -z "${COMMITS}" ]]
 then
