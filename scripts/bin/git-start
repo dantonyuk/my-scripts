@@ -9,7 +9,8 @@ then
 fi
 
 NEW_BRANCH=$1
-START_POINT=${2:-master}
+DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+START_POINT=${2:-$DEFAULT_BRANCH}
 
 git checkout ${START_POINT}
 git pull --all

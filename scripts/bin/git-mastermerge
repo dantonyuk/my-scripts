@@ -1,11 +1,7 @@
 #!/bin/bash
 
-if [ "$1" == "" ]
-then
-    BRANCH=master
-else
-    BRANCH=$1
-fi
+DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+BRANCH=${1:-$DEFAULT_BRANCH}
 
 CURRENT=$(git current)
 git checkout $BRANCH && git pull --all && git co $CURRENT && git merge $BRANCH

@@ -10,7 +10,8 @@ usage() {
   echo "Usage: git pr"
 }
 
-ORIGIN=${1:-master}
+DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+ORIGIN=${1:-$DEFAULT_BRANCH}
 REPO=$(git config remote.origin.url | sed -e 's/^.*:\(.*\).git$/\1/')
 BRANCH=$(git branch --show-current)
 #"${BROWSER}" "https://github.com/${REPO}/pull/new/${BRANCH}"
