@@ -22,7 +22,12 @@ fi
 git checkout ${DEFAULT_BRANCH}
 git pull --all
 
-git branch -D ${BRANCH}
+if git worktree list | grep -F '['${BRANCH}']'
+then
+    git worktree remove "${BRANCH}"
+else
+    git branch -D ${BRANCH}
+fi
 
 set +e
 git push origin --delete ${BRANCH}
