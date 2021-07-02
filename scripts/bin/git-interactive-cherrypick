@@ -18,9 +18,6 @@ mapfile -t COMMITS < <( git log --date=short --format="%C(green)%C(bold)%cd %C(a
     --preview 'grep -o "[a-f0-9]\{7,\}" <<< {} | xargs git show --color=always | head -'$LINES | \
     grep -o "[a-f0-9]\{7,\}" | tac)
 
-echo ${COMMITS[@]}
-exit
-
 if [[ ! -z "${COMMITS}" ]]
 then
     EXISTS_LOCALLY=$(git branch --list ${TARGET_BRANCH})
