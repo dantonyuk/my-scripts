@@ -14,5 +14,13 @@ START_POINT=${2:-$DEFAULT_BRANCH}
 
 git checkout ${START_POINT}
 git pull --all
-git checkout -b ${NEW_BRANCH}
+
+if git show-ref --heads --quiet --verify -- "refs/heads/$NEW_BRANCH"
+then
+    git checkout ${NEW_BRANCH}
+    printf "\u001b[31mBranch $NEW_BRANCH already exists. Switching to it.\u001b[0m\n"
+else
+    git checkout -b ${NEW_BRANCH}
+fi
+
 git push --set-upstream origin ${NEW_BRANCH}
