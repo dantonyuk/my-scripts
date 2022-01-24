@@ -14,7 +14,7 @@ fi
 
 # Sync the fork branch with the original one
 
-DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+DEFAULT_BRANCH=$(git default-branch)
 BRANCH=${1:-$DEFAULT_BRANCH}
 CURRENT_BRANCH=$(git branch --show-current)
 

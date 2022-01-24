@@ -9,7 +9,7 @@ then
 fi
 
 NEW_BRANCH=$1
-DEFAULT_BRANCH=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
+DEFAULT_BRANCH=$(git default-branch)
 START_POINT=${2:-$DEFAULT_BRANCH}
 
 git checkout ${START_POINT}

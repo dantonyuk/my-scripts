@@ -9,7 +9,7 @@ then
 fi
 
 TARGET_BRANCH=$1
-DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+DEFAULT_BRANCH=$(git default-branch)
 START_POINT=${2:-$DEFAULT_BRANCH}
 
 mapfile -t COMMITS < <( git log --date=short --format="%C(green)%C(bold)%cd %C(auto)%h%d %s (%an)" --graph --color=always | \
