@@ -1,0 +1,14 @@
+#!/bin/zsh
+
+if [ $# -eq 0 ]
+then
+  echo "No preview"
+elif [ -d "$1" ]
+then
+  tree -C $1
+elif [ -f "$1" ]
+then
+  bat -f $1
+else
+  echo "$1 is neither a file nor directory"
+fi
