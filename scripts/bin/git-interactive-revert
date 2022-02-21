@@ -1,0 +1,44 @@
+#!/bin/bash
+
+set -e
+
+if [[ -z $1 ]]
+then
+    echo "Use: $0 TARGET_BRANCH [START-POINT]"
+    exit 1
+fi
+
+TARGET_BRANCH=$1
+DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+START_POINT=${2:-$DEFAULT_BRANCH}
+
+mapfile -t COMMITS < <( git log --date=short --format="%C(green)%C(bold)%cd %C(auto)%h%d %s (%an)" --graph --color=always | \
+    fzf --multi --height 50% --ansi --no-sort --reverse \
+    --bind='ctrl-/:toggle-preview' \
+    --preview 'grep -o "[a-f0-9]\{7,\}" <<< {} | xargs git show --color=always | head -'$LINES | \
+    grep -o "[a-f0-9]\{7,\}")
+
+if [[ ! -z "${COMMITS}" ]]
+then
+    EXISTS_LOCALLY=$(git branch --list ${TARGET_BRANCH})
+    if [[ -z "${EXISTS_LOCALLY}" ]]
+    then
+        git checkout ${START_POINT}
+        git pull --all
+        git checkout -b ${TARGET_BRANCH}
+        git push --set-upstream origin ${TARGET_BRANCH}
+    else
+        git checkout ${TARGET_BRANCH}
+    fi
+
+    EXISTS_REMOTELY=$(git ls-remote --heads origin ${TARGET_BRANCH})
+    if [[ -z "${EXISTS_REMOTELY}" ]]
+    then
+        git push --set-upstream origin ${TARGET_BRANCH}
+    fi
+
+    echo "Trying to apply commits:"
+    echo ${COMMITS[@]}
+
+    git revert --no-edit ${COMMITS[@]}
+fi
