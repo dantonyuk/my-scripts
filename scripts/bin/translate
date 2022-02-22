@@ -1,0 +1,5 @@
+#!/bin/bash
+
+curl -s 'https://www.multitran.com/m.exe?s='${1}'&l1=1&l2=2' | \
+xmllint --html --xpath "//div[form[@id='translation']]/table" - 2>/dev/null | \
+html2text -utf8
