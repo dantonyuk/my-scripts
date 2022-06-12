@@ -3,5 +3,5 @@
 cd scripts
 for f in **/*(.)
 do
-    ln -s $(readlink -f $f) ~/$f
+    ln -s $(realpath $f) ~/$f
 done
