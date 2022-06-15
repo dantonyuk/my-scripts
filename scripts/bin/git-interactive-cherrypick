@@ -12,7 +12,10 @@ TARGET_BRANCH=$1
 DEFAULT_BRANCH=$(git default-branch)
 START_POINT=${2:-$DEFAULT_BRANCH}
 
-mapfile -t COMMITS < <( git log --date=short --format="%C(green)%C(bold)%cd %C(auto)%h%d %s (%an)" --graph --color=always | \
+while IFS= read -r line
+do
+    COMMITS+=("${line}")
+done < <( git log --date=short --format="%C(green)%C(bold)%cd %C(auto)%h%d %s (%an)" --graph --color=always | \
     fzf --multi --height 50% --ansi --no-sort --reverse \
     --bind='ctrl-/:toggle-preview' \
     --preview 'grep -o "[a-f0-9]\{7,\}" <<< {} | xargs git show --color=always | head -'$LINES | \
