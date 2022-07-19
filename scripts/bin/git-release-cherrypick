@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -e
+
+if [[ -z $1 ]]
+then
+    echo "Use: $0 RELEASE-BRANCH"
+    exit 1
+fi
+
+RELEASE=$1
+
+git interactive-cherrypick $(git current)-${RELEASE} ${RELEASE}
