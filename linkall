@@ -3,5 +3,6 @@
 cd scripts
 for f in **/*(.)
 do
-    ln -s $(realpath $f) ~/$f
+    echo ln -sf "${f:a}" ~/$f
+    ln -sf "${f:a}" ~/$f
 done
