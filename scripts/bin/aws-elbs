@@ -1,0 +1,100 @@
+#!/bin/zsh
+
+if [ -z ${AWS_PROFILE} ]; then
+    source aws-profile
+fi
+
+AWS_REGION=${AWS_REGION:-$(aws configure list | grep region | awk '{print $2}')}
+
+APPLICATIONS=$(
+    aws elasticbeanstalk describe-applications \
+        --query 'Applications[].[ApplicationName]' \
+        --output text
+)
+
+if [ -z ${APPLICATIONS} ]; then
+    echo "No applications found"
+    exit 1
+fi
+
+APPLICATION=$(echo ${APPLICATIONS} | sort | \
+    fzf --prompt="Select application: " --layout=reverse \
+        --header "Enter: View Environments | Ctrl-O: Open in Browser" \
+        --header-first \
+        --bind "ctrl-o:execute-silent(open 'https://${AWS_REGION}.console.aws.amazon.com/elasticbeanstalk/home#/application/overview?applicationName={}')" \
+)
+if [ -z ${APPLICATION} ]; then
+    echo "No application selected"
+    exit 1
+fi
+
+ENVIRONMENTS=$(
+    aws elasticbeanstalk describe-environments \
+        --application-name ${APPLICATION} \
+        --query 'Environments[].[EnvironmentName]' \
+        --output text
+)
+if [ -z ${ENVIRONMENTS} ]; then
+    echo "No environments found"
+    exit 1
+fi
+
+ENVIRONMENT=$(echo ${ENVIRONMENTS} | sort | \
+    fzf --prompt="Select environment: " --layout=reverse \
+        --preview-window=down:25 \
+        --preview="aws elasticbeanstalk describe-environments --application-name ${APPLICATION} --environment-name {} --query 'Environments[]' --output table" \
+        --header "Enter: Select Environment | Ctrl-O: Open in Browser" \
+        --header-first \
+        --bind "ctrl-o:execute-silent(open 'https://${AWS_REGION}.console.aws.amazon.com/elasticbeanstalk/home#/environment/dashboard?applicationName=${APPLICATION}&environmentName={}&region=${AWS_REGION}')" \
+        --bind "f1:execute(
+            aws elasticbeanstalk describe-instances-health --environment-name {} --attribute-names All | \
+                jq -r '["'"'"Instance ID"'"'", "'"'"Health Status"'"'", "'"'"Color"'"'"], ["'"'"--------------------------------------"'"'"], (.InstanceHealthList[] | [.InstanceId, .HealthStatus, .Color]) | @tsv' | )")
+
+if [ -z ${ENVIRONMENT} ]; then
+    echo "No environment selected"
+    exit 1
+fi
+
+INSTANCE_JQ='.InstanceHealthList[] | [.InstanceId, ":",
+    if .Color=="Red" then "\u001b[31;1m"
+    elif .Color="Green" then "\u001b[32;1m"
+    elif .Color="Yellow" then "\u001b[33;1m"
+    else "" end,
+    .HealthStatus, "\u001b[0m"] | join("")'
+
+INSTANCE_JQ_FILE=$(mktemp /tmp/aws-elbs-instance-jq.$(date +%s))
+echo ${INSTANCE_JQ} > ${INSTANCE_JQ_FILE}
+
+EXIT_INSTANCES=0
+while [ "${EXIT_INSTANCES}" = 0 ]
+do
+    INSTANCE_IDS=$(
+        aws elasticbeanstalk describe-instances-health --environment-name ${ENVIRONMENT} --attribute-names All | jq -r -f ${INSTANCE_JQ_FILE}
+    )
+
+    SELECTED_INSTANCE_IDS=($(echo ${INSTANCE_IDS} | sort | \
+        fzf --prompt="Select instance: " --layout=reverse --ansi \
+            --preview-window=down:25 \
+            --preview="aws ec2 describe-instances --instance-ids {1} --query 'Reservations[].Instances[]' --output table" \
+            --header "Enter: Select Instance(s) | Del: Terminate Instance(s) | Ctrl-O: Open in Browser | Ctrl-R: Refresh" \
+            --header-first \
+            --multi \
+            --bind 'ctrl-y:execute-silent(echo -n {1} | pbcopy)' \
+            --delimiter ':' \
+            --bind "ctrl-o:execute-silent(open 'https://${AWS_REGION}.console.aws.amazon.com/ec2/v2/home?region=${AWS_REGION}#Instances:instanceId={1};sort=instanceId')" \
+            --bind "ctrl-r:+reload(aws elasticbeanstalk describe-instances-health --environment-name ${ENVIRONMENT} --attribute-names All | jq -r -f ${INSTANCE_JQ_FILE})" \
+            --expect del
+    ))
+
+    if [ "${SELECTED_INSTANCE_IDS[1]}" = "del" ]; then
+        shift SELECTED_INSTANCE_IDS
+        for INSTANCE_ID in ${SELECTED_INSTANCE_IDS[@]}; do
+            echo aws ec2 terminate-instances --instance-ids ${INSTANCE_ID%:*}
+            sleep 1
+        done
+    else
+        EXIT_INSTANCES=1
+    fi
+done
+
+rm ${INSTANCE_JQ_FILE}
