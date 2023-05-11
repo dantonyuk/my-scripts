@@ -23,11 +23,11 @@ done < <( git log --date=short --format="%C(green)%C(bold)%cd %C(auto)%h%d %s (%
 
 if [[ ! -z "${COMMITS}" ]]
 then
+    git pull --all
     EXISTS_LOCALLY=$(git branch --list ${TARGET_BRANCH})
     if [[ -z "${EXISTS_LOCALLY}" ]]
     then
         git checkout ${START_POINT}
-        git pull --all
         git checkout -b ${TARGET_BRANCH}
         git push --set-upstream origin ${TARGET_BRANCH}
     else
