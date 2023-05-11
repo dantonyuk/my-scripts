@@ -1,0 +1,15 @@
+#!/bin/zsh
+
+if [ -z ${AWS_PROFILE} ]
+then
+    source aws-profile
+fi
+
+AWS_PROG=/opt/homebrew/bin/aws
+
+if command -v aws-vault &> /dev/null
+then
+  aws-vault exec ${AWS_PROFILE} -- ${AWS_PROG} $@
+else
+  ${AWS_PROG} $@
+fi
