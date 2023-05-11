@@ -1,0 +1,26 @@
+#!/bin/zsh
+
+GROUP=$(
+    aws logs describe-log-groups \
+        --query 'logGroups[].[logGroupName]' \
+        --output text | \
+    fzf --prompt="Pick a group> ")
+if [ -z "${GROUP}" ]
+then
+    exit
+fi
+
+STREAMS=( $(
+    aws logs describe-log-streams \
+        --log-group-name ${GROUP} \
+        --order-by LastEventTime --descending \
+        --query 'logStreams[].[logStreamName]' \
+        --output text ))
+for STREAM in ${STREAMS[@]}
+do
+    aws logs get-log-events \
+        --log-group-name ${GROUP} --log-stream-name ${STREAM} \
+        --no-paginate \
+        --query 'events[].[message]' \
+        --output text
+done
