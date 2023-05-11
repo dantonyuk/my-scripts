@@ -1,0 +1,4 @@
+#!/bin/zsh
+
+AWS_PROG=/opt/homebrew/bin/aws
+export AWS_PROFILE=$(${AWS_PROG} configure list-profiles | fzf --height 40% --layout=reverse --prompt="AWS Profile: ")
