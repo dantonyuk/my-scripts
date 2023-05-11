@@ -1,0 +1,149 @@
+#!/bin/zsh
+
+DOMAINS=$(
+    aws codeartifact list-domains \
+        --query 'domains[].[name]' \
+        --output text)
+if [ -z "${DOMAINS}" ]
+then
+    echo "No CodeArtifact domains found in the account"
+    exit 1
+elif [ $(wc -l <<< "${DOMAINS}") -eq 1 ]
+then
+    DOMAIN=${DOMAINS}
+else
+    DOMAIN=$(echo ${DOMAINS} | fzf --prompt="Pick a domain> ")
+fi
+
+if [ -z "${DOMAIN}" ]
+then
+    exit
+fi
+
+echo "Domain: ${DOMAIN}"
+
+REPOSITORIES=$(
+    aws codeartifact list-repositories-in-domain \
+        --domain ${DOMAIN} \
+        --query 'repositories[].[name]' \
+        --output text)
+if [ -z "${REPOSITORIES}" ]
+then
+    echo "No CodeArtifact repositories found in the domain ${DOMAIN}"
+    exit 1
+elif [ $(wc -l <<< "${REPOSITORIES}") -eq 1 ]
+then
+    REPOSITORY=${REPOSITORIES}
+else
+    REPOSITORY=$(echo ${REPOSITORIES} | fzf --prompt="Pick a repository> ")
+fi
+
+if [ -z "${REPOSITORY}" ]
+then
+    exit
+fi
+
+echo "Repository: ${REPOSITORY}"
+
+if [ -z "${CODEARTIFACT_AUTH_TOKEN}" ]
+then
+    export CODEARTIFACT_AUTH_TOKEN=$(
+        aws codeartifact get-authorization-token \
+            --domain ${DOMAIN} \
+            --query authorizationToken --output text)
+fi
+
+export REPOSITORY_ENDPOINT=$(
+    aws codeartifact get-repository-endpoint \
+        --domain ${DOMAIN} \
+        --repository ${REPOSITORY} \
+        --format maven \
+        --output text \
+        --query 'repositoryEndpoint')
+
+PACKAGES=$(
+    aws codeartifact list-packages --domain ${DOMAIN} --repository ${REPOSITORY} --no-paginate | \
+    jq -r '.packages[] | .namespace + ":" + .package')
+if [ -z "${PACKAGES}" ]
+then
+    echo "No CodeArtifact packages found in the repository ${REPOSITORY}"
+    exit 1
+fi
+
+PACKAGES=( $(echo ${PACKAGES} | \
+    fzf --prompt="Pick a package> " \
+        --multi \
+        --delimiter ':' \
+        --preview 'echo aws codeartifact describe-package \
+            --domain dls \
+            --repository main \
+            --namespace {0} \
+            --package {1} \
+            --format maven --output json'))
+if [ -z "${PACKAGES}" ]
+then
+    exit
+fi
+
+VERSIONS=($(
+    (
+        for FULL_PACKAGE in ${PACKAGES[@]}
+        do
+            PACKAGE_PARTS=(${(s/:/)${FULL_PACKAGE}})
+            NAMESPACE=$PACKAGE_PARTS[1]
+            PACKAGE=$PACKAGE_PARTS[2]
+            NAMESPACE_PATH=${NAMESPACE_PATH:gs|.|/|}
+            PACKAGE_DIR="${NAMESPACE_PATH}/${PACKAGE}/${}"
+
+            aws codeartifact list-package-versions \
+                --domain ${DOMAIN} \
+                --repository ${REPOSITORY} \
+                --namespace ${NAMESPACE} \
+                --package ${PACKAGE} \
+                --format maven | \
+            jq -r '.versions[] | "'${FULL_PACKAGE}:'" + .version'
+        done
+    ) | \
+    fzf --prompt="Pick a version(s)> " \
+        --header "Enter: Print package version(s) | Del: Delete selected version(s) | Ctrl-A: (Un)select all" \
+        --header-first \
+        --multi \
+        --bind ctrl-a:toggle-all \
+        --bind 'ctrl-y:execute-silent(echo -n {} | pbcopy)' \
+        --delimiter ':' \
+        --preview '
+            echo -e "Assets\n======\n";
+            aws codeartifact list-package-version-assets \
+                --domain '${DOMAIN}' --repository '${REPOSITORY}' --format maven \
+                --namespace {1} \
+                --package {2} \
+                --package-version {3} \
+                --query '"'"'assets[*].[name]'"'"' --output text 2>&1;
+            echo -e "\nPOM file\n========\n";
+            CODEARTIFACT_AUTH_TOKEN=${CODEARTIFACT_AUTH_TOKEN} REPOSITORY_ENDPOINT=${REPOSITORY_ENDPOINT} aws-artifact-pom {}' \
+        --expect del
+))
+
+if [[ "$VERSIONS[1]" == "del" ]]
+then
+    shift VERSIONS
+    for PACKAGE_VERSION in ${VERSIONS[@]}
+    do
+        VERSION_PARTS=(${(s/:/)${PACKAGE_VERSION}})
+        NAMESPACE=$VERSION_PARTS[1]
+        PACKAGE=$VERSION_PARTS[2]
+        VERSION=$VERSION_PARTS[3]
+
+        echo "Deleting ${PACKAGE_VERSION}..."
+        aws codeartifact delete-package-versions \
+            --domain ${DOMAIN} \
+            --repository ${REPOSITORY} \
+            --format maven \
+            --namespace ${NAMESPACE} \
+            --package ${PACKAGE} \
+            --versions ${VERSION} \
+            --output text
+    done
+else
+    echo ${VERSIONS[@]}
+fi

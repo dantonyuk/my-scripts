@@ -1,0 +1,98 @@
+#!/bin/zsh
+
+usage() {
+    echo "Usage: $0 [OPTION]... PACKAGE"
+    echo "Show pom-file for the specified package version"
+    echo ""
+    echo "PACKAGE in format group:artifact:version"
+    echo ""
+    echo "Options:"
+    echo "  -d, --domain DOMAIN             CodeArtifact domain"
+    echo "  -r, --repository REPOSITORY     CodeArtifact repository"
+    echo ""
+    echo "Environment variables:"
+    echo "  CODEARTIFACT_AUTH_TOKEN         Token to authenticate in CodeArtifact."
+    echo "                                  If not specified DOMAIN and REPOSITORY"
+    echo "                                  options should be provided."
+    echo "  REPOSITORY_ENDPOINT             Repository endpoint."
+    echo "                                  If not specified DOMAIN and REPOSITORY"
+    echo "                                  options should be provided."
+}
+
+if [[ $# -lt 1 ]]
+then
+    usage
+    exit 1
+fi
+
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -d | --domain)
+      DOMAIN="$2"
+      shift
+      shift
+      ;;
+    -r | --repository)
+      REPOSITORY="$2"
+      shift
+      shift
+      ;;
+    -* | --*)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if [[ ${#POSITIONAL_ARGS[@]} -eq 1 ]]
+then
+    PACKAGE_VERSION=${POSITIONAL_ARGS[1]}
+else
+    usage
+    exit 1
+fi
+
+dep_parts=(${(s/:/)${PACKAGE_VERSION}})
+dep_group=$dep_parts[1]
+dep_artifact=$dep_parts[2]
+dep_version=$dep_parts[3]
+
+dep_group_path=${dep_group:gs|.|/|}
+dep_dir="${dep_group_path}/${dep_artifact}/${dep_version}"
+
+if [ -z "${CODEARTIFACT_AUTH_TOKEN}" ]
+then
+    if [ -z "${DOMAIN}" ]
+    then
+        echo "Either DOMAIN option or envvar CODEARTIFACT_AUTH_TOKEN should be specified."
+        exit 1
+    fi
+    CODEARTIFACT_AUTH_TOKEN=$(
+        aws codeartifact get-authorization-token \
+            --domain ${DOMAIN} \
+            --query authorizationToken --output text)
+fi
+
+if [ -z "${REPOSITORY_ENDPOINT}" ]
+then
+    if [ -z "${DOMAIN}" ] || [ -z "${REPOSITORY}" ]
+    then
+        echo "Either DOMAIN and REPOSITORY options or envvar REPOSITORY_ENDPOINT should be specified."
+        exit 1
+    fi
+    REPOSITORY_ENDPOINT=$(
+        aws codeartifact get-repository-endpoint \
+            --domain ${DOMAIN} \
+            --repository ${REPOSITORY} \
+            --format maven \
+            --output text \
+            --query 'repositoryEndpoint')
+fi
+
+curl -Ls -u "aws:${CODEARTIFACT_AUTH_TOKEN}" ${REPOSITORY_ENDPOINT}${dep_dir}/${dep_artifact}-${dep_version}.pom
