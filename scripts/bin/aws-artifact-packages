@@ -1,5 +1,12 @@
 #!/bin/zsh
 
+if [ -z ${AWS_PROFILE} ]; then
+    source aws-profile
+fi
+
+AWS_REGION=${AWS_REGION:-$(aws configure list | grep region | awk '{print $2}')}
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
+
 DOMAINS=$(
     aws codeartifact list-domains \
         --query 'domains[].[name]' \
@@ -45,6 +52,8 @@ fi
 
 echo "Repository: ${REPOSITORY}"
 
+REPOSITORY_URL="https://${AWS_REGION}.console.aws.amazon.com/codesuite/codeartifact/d/${AWS_ACCOUNT_ID}/${DOMAIN}/r/${REPOSITORY}/p/maven"
+
 if [ -z "${CODEARTIFACT_AUTH_TOKEN}" ]
 then
     export CODEARTIFACT_AUTH_TOKEN=$(
@@ -71,15 +80,21 @@ then
 fi
 
 PACKAGES=( $(echo ${PACKAGES} | \
-    fzf --prompt="Pick a package> " \
+    fzf --prompt="Pick a package>" --layout reverse \
+        --header "Enter: View package(s) versions | Ctrl-O: Open in browser | Ctrl-Y: Yank version | Ctrl-U: Yank URL | Ctrl-A: (Un)select all" \
+        --header-first \
         --multi \
+        --bind ctrl-a:toggle-all \
+        --bind 'ctrl-y:execute-silent(echo -n {} | pbcopy)' \
+        --bind "ctrl-o:execute-silent(open '${REPOSITORY_URL}/{1}/{2}/versions?region=${AWS_REGION}')" \
+        --bind "ctrl-u:execute-silent(echo '${REPOSITORY_URL}/{1}/{2}/versions?region=${AWS_REGION}' | pbcopy)" \
         --delimiter ':' \
-        --preview 'echo aws codeartifact describe-package \
-            --domain dls \
-            --repository main \
-            --namespace {0} \
-            --package {1} \
-            --format maven --output json'))
+        --preview-window='down:50%' \
+        --preview "aws codeartifact list-package-versions \
+            --domain ${DOMAIN} --repository ${REPOSITORY} \
+            --namespace {1} --package {2} \
+            --format maven --output json \
+            | jq -r '.versions[] | .version + "'": "'" + .status'"))
 if [ -z "${PACKAGES}" ]
 then
     exit
@@ -104,12 +119,14 @@ VERSIONS=($(
             jq -r '.versions[] | "'${FULL_PACKAGE}:'" + .version'
         done
     ) | \
-    fzf --prompt="Pick a version(s)> " \
-        --header "Enter: Print package version(s) | Del: Delete selected version(s) | Ctrl-A: (Un)select all" \
+    fzf --prompt="Pick a version(s)> " --layout reverse \
+        --header "Enter: Print version(s) | Del: Delete version(s) | Ctrl-O: Open in browser | Ctrl-Y: Yank version | Ctrl-U: Yank URL | Ctrl-A: (Un)select all" \
         --header-first \
         --multi \
         --bind ctrl-a:toggle-all \
         --bind 'ctrl-y:execute-silent(echo -n {} | pbcopy)' \
+        --bind "ctrl-o:execute-silent(open '${REPOSITORY_URL}/{1}/{2}/v/{3}?region=${AWS_REGION}')" \
+        --bind "ctrl-u:execute-silent(echo '${REPOSITORY_URL}/{1}/{2}/v/{3}?region=${AWS_REGION}' | pbcopy)" \
         --delimiter ':' \
         --preview '
             echo -e "Assets\n======\n";
