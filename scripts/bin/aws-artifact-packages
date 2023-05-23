@@ -80,7 +80,7 @@ then
 fi
 
 PACKAGES=( $(echo ${PACKAGES} | \
-    fzf --prompt="Pick a package>" --layout reverse \
+    fzf --prompt="Pick a package>" --layout reverse --pointer='▶' \
         --header "Enter: View package(s) versions | Ctrl-O: Open in browser | Ctrl-Y: Yank version | Ctrl-U: Yank URL | Ctrl-A: (Un)select all" \
         --header-first \
         --multi \
@@ -120,11 +120,29 @@ VERSIONS=($(
         done
     ) | \
     fzf --prompt="Pick a version(s)> " --layout reverse \
-        --header "Enter: Print version(s) | Del: Delete version(s) | Ctrl-O: Open in browser | Ctrl-Y: Yank version | Ctrl-U: Yank URL | Ctrl-A: (Un)select all" \
+        --header "Enter: Print version(s) | Del: Delete version(s) | Ctrl-G: Download | Ctrl-O: Open in browser | Ctrl-Y: Yank version | Ctrl-U: Yank URL | Ctrl-A: (Un)select all" \
         --header-first \
         --multi \
         --bind ctrl-a:toggle-all \
         --bind 'ctrl-y:execute-silent(echo -n {} | pbcopy)' \
+        --bind "ctrl-h:execute(echo curl -u 'aws:$CODEARTIFACT_AUTH_TOKEN' '${REPOSITORY_ENDPOINT}(echo "{1}" | tr . /)/{2}/{3}/{2}-{3}.jar')" \
+        --bind "ctrl-g:execute(
+            mkdir -p {2}-{3}
+            cd {2}-{3}
+            ASSETS=(\$(
+                aws codeartifact list-package-version-assets \
+                    --domain ${DOMAIN} --repository ${REPOSITORY} --format maven \
+                    --namespace {1} \
+                    --package {2} \
+                    --package-version {3} \
+                    --query 'assets[*].[name]' --output text))
+            for ASSET in \${ASSETS[@]}
+            do
+                echo "'"'"Downloading \${ASSET}..."'"'"
+                ASSET_PATH=\$(echo {1} | tr . /)/{2}/{3}/\${ASSET}
+                curl -sLO -u 'aws:$CODEARTIFACT_AUTH_TOKEN' '${REPOSITORY_ENDPOINT}'\${ASSET_PATH}
+            done
+            cd -)" \
         --bind "ctrl-o:execute-silent(open '${REPOSITORY_URL}/{1}/{2}/v/{3}?region=${AWS_REGION}')" \
         --bind "ctrl-u:execute-silent(echo '${REPOSITORY_URL}/{1}/{2}/v/{3}?region=${AWS_REGION}' | pbcopy)" \
         --delimiter ':' \
