@@ -80,7 +80,7 @@ then
 fi
 
 PACKAGES=( $(echo ${PACKAGES} | \
-    fzf --prompt="Pick a package>" --layout reverse --pointer='▶' \
+    fzf --prompt="Pick a package> " --layout reverse --pointer='▶' \
         --header "Enter: View package(s) versions | Ctrl-O: Open in browser | Ctrl-Y: Yank version | Ctrl-U: Yank URL | Ctrl-A: (Un)select all" \
         --header-first \
         --multi \
@@ -123,6 +123,7 @@ VERSIONS=($(
         --header "Enter: Print version(s) | Del: Delete version(s) | Ctrl-G: Download | Ctrl-O: Open in browser | Ctrl-Y: Yank version | Ctrl-U: Yank URL | Ctrl-A: (Un)select all" \
         --header-first \
         --multi \
+        --delimiter ':' \
         --bind ctrl-a:toggle-all \
         --bind 'ctrl-y:execute-silent(echo -n {} | pbcopy)' \
         --bind "ctrl-h:execute(echo curl -u 'aws:$CODEARTIFACT_AUTH_TOKEN' '${REPOSITORY_ENDPOINT}(echo "{1}" | tr . /)/{2}/{3}/{2}-{3}.jar')" \
@@ -145,7 +146,6 @@ VERSIONS=($(
             cd -)" \
         --bind "ctrl-o:execute-silent(open '${REPOSITORY_URL}/{1}/{2}/v/{3}?region=${AWS_REGION}')" \
         --bind "ctrl-u:execute-silent(echo '${REPOSITORY_URL}/{1}/{2}/v/{3}?region=${AWS_REGION}' | pbcopy)" \
-        --delimiter ':' \
         --preview '
             echo -e "Assets\n======\n";
             aws codeartifact list-package-version-assets \
