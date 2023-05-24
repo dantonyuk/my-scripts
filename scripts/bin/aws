@@ -5,11 +5,11 @@ then
     source aws-profile
 fi
 
-AWS_PROG=/opt/homebrew/bin/aws
+AWS_COMMAND=${AWS_COMMAND:-/opt/homebrew/bin/aws}
 
 if command -v aws-vault &> /dev/null
 then
-  aws-vault exec ${AWS_PROFILE} -- ${AWS_PROG} $@
+  aws-vault exec ${AWS_PROFILE} -- ${AWS_COMMAND} $@
 else
-  ${AWS_PROG} $@
+  ${AWS_COMMAND} $@
 fi
