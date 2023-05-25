@@ -1,58 +1,18 @@
 #!/bin/zsh
 
-if [ -z ${AWS_PROFILE} ]; then
-    source aws-profile
-fi
+source __aws-common
 
-AWS_REGION=${AWS_REGION:-$(aws configure list | grep region | awk '{print $2}')}
-AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
-
-DOMAINS=$(
-    aws codeartifact list-domains \
-        --query 'domains[].[name]' \
-        --output text)
-if [ -z "${DOMAINS}" ]
-then
-    echo "No CodeArtifact domains found in the account"
-    exit 1
-elif [ $(wc -l <<< "${DOMAINS}") -eq 1 ]
-then
-    DOMAIN=${DOMAINS}
-else
-    DOMAIN=$(echo ${DOMAINS} | fzf --prompt="Pick a domain> ")
-fi
-
+DOMAIN=$(aws codeartifact pick-domain)
 if [ -z "${DOMAIN}" ]
 then
     exit
 fi
 
-echo "Domain: ${DOMAIN}"
-
-REPOSITORIES=$(
-    aws codeartifact list-repositories-in-domain \
-        --domain ${DOMAIN} \
-        --query 'repositories[].[name]' \
-        --output text)
-if [ -z "${REPOSITORIES}" ]
-then
-    echo "No CodeArtifact repositories found in the domain ${DOMAIN}"
-    exit 1
-elif [ $(wc -l <<< "${REPOSITORIES}") -eq 1 ]
-then
-    REPOSITORY=${REPOSITORIES}
-else
-    REPOSITORY=$(echo ${REPOSITORIES} | fzf --prompt="Pick a repository> ")
-fi
-
+REPOSITORY=$(aws codeartifact pick-repository ${DOMAIN})
 if [ -z "${REPOSITORY}" ]
 then
     exit
 fi
-
-echo "Repository: ${REPOSITORY}"
-
-REPOSITORY_URL="https://${AWS_REGION}.console.aws.amazon.com/codesuite/codeartifact/d/${AWS_ACCOUNT_ID}/${DOMAIN}/r/${REPOSITORY}/p/maven"
 
 if [ -z "${CODEARTIFACT_AUTH_TOKEN}" ]
 then
@@ -70,31 +30,7 @@ export REPOSITORY_ENDPOINT=$(
         --output text \
         --query 'repositoryEndpoint')
 
-PACKAGES=$(
-    aws codeartifact list-packages --domain ${DOMAIN} --repository ${REPOSITORY} --no-paginate | \
-    jq -r '.packages[] | .namespace + ":" + .package')
-if [ -z "${PACKAGES}" ]
-then
-    echo "No CodeArtifact packages found in the repository ${REPOSITORY}"
-    exit 1
-fi
-
-PACKAGES=( $(echo ${PACKAGES} | \
-    fzf --prompt="Pick a package> " --layout reverse --pointer='▶' \
-        --header "Enter: View package(s) versions | Ctrl-O: Open in browser | Ctrl-Y: Yank version | Ctrl-U: Yank URL | Ctrl-A: (Un)select all" \
-        --header-first \
-        --multi \
-        --bind ctrl-a:toggle-all \
-        --bind 'ctrl-y:execute-silent(echo -n {} | pbcopy)' \
-        --bind "ctrl-o:execute-silent(open '${REPOSITORY_URL}/{1}/{2}/versions?region=${AWS_REGION}')" \
-        --bind "ctrl-u:execute-silent(echo '${REPOSITORY_URL}/{1}/{2}/versions?region=${AWS_REGION}' | pbcopy)" \
-        --delimiter ':' \
-        --preview-window='down:50%' \
-        --preview "aws codeartifact list-package-versions \
-            --domain ${DOMAIN} --repository ${REPOSITORY} \
-            --namespace {1} --package {2} \
-            --format maven --output json \
-            | jq -r '.versions[] | .version + "'": "'" + .status'"))
+PACKAGES=($(aws codeartifact pick-packages ${DOMAIN} ${REPOSITORY}))
 if [ -z "${PACKAGES}" ]
 then
     exit
