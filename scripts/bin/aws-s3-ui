@@ -1,0 +1,128 @@
+#!/bin/zsh
+
+if [ -z ${AWS_PROFILE} ]; then
+    source aws-profile
+fi
+
+AWS_REGION=${AWS_REGION:-$(aws configure list | grep region | awk '{print $2}')}
+
+function download_from_s3() {
+    for key in ${S3_KEYS[@]}; do
+        if [[ "${key}" == .. ]]
+        then
+            continue
+        elif [[ ${key} == */ ]]
+        then
+            aws s3 sync s3://${BUCKET}/"${PREFIX}${key}" ${key}
+        else
+            aws s3 cp s3://${BUCKET}/"${PREFIX}${key}" ${key}
+        fi
+    done
+}
+
+function upload_to_s3() {
+    local PREFIX
+    FILES=($(fzf --prompt="Select file: " --layout=reverse --ansi --multi))
+    for file in ${FILES[@]}; do
+        if [[ -d ${file} ]]
+        then
+            aws s3 sync ${file} s3://${BUCKET}/"${PREFIX}${file}"
+        else
+            aws s3 cp ${file} s3://${BUCKET}/"${PREFIX}${file}"
+        fi
+    done
+}
+
+function delete_from_s3() {
+    if [[ ${#S3_KEYS[@]} -eq 0 ]]
+    then
+        return
+    fi
+
+    read \?"Are you sure? [y/n] " REPLY
+    if ! [[ $REPLY =~ ^[Yy]$ ]]
+    then
+        return
+    fi
+
+    for key in ${S3_KEYS[@]}; do
+        if [[ "${key}" == .. ]]
+        then
+            continue
+        elif [[ ${key} == */ ]]
+        then
+            echo aws s3 rm --recursive s3://${BUCKET}/"${PREFIX}${key}"
+        else
+            echo aws s3 rm s3://${BUCKET}/"${PREFIX}${key}"
+        fi
+    done
+}
+
+BUCKETS=$(aws s3api list-buckets --query 'Buckets[].[Name]' --output text)
+if [ -z ${BUCKETS} ]; then
+    echo "No buckets found"
+    exit 1
+fi
+
+BUCKET=$(echo ${BUCKETS} | sort | \
+    fzf --prompt="Select bucket: " --layout=reverse \
+        --header "Enter: View Bucket Content | Ctrl-O: Open in Browser | Ctrl-Y: Yank URL" \
+        --header-first \
+        --bind "ctrl-o:execute-silent(open 'https://s3.console.aws.amazon.com/s3/buckets/{}?region=${AWS_REGION}&tab=objects')" \
+        --bind "ctrl-y:execute-silent(echo 'https://s3.console.aws.amazon.com/s3/buckets/{}?region=${AWS_REGION}&tab=objects' | pbcopy)" \
+)
+
+PREFIX=""
+S3_URL="https://s3.console.aws.amazon.com/s3/buckets/${BUCKET}?region=${AWS_REGION}&prefix="
+
+while :; do
+    OBJECTS=$(
+        if [[ ! -z ${PREFIX} ]]; then
+            echo ".."
+        fi
+        aws s3api list-objects --bucket ${BUCKET} --delimiter / --prefix "${PREFIX}" \
+        | jq -r '[.Contents[]?.Key] + [.CommonPrefixes[]?.Prefix]|map(.[("'$PREFIX'" | length):])|.[]')
+
+    S3_KEYS=($(echo ${OBJECTS} | \
+        fzf --prompt="Select key: " --layout=reverse --ansi \
+            --preview-window=right \
+            --preview="if [[ '{}' == */ ]] || [[ '{}' == '..' ]]; then echo 'Folder'; else aws s3api get-object-attributes --bucket ${BUCKET} --key "${PREFIX}{}" --object-attributes StorageClass ETag ObjectSize ObjectParts; fi" \
+            --header "Ctrl-G: Download | Ctrl-L: Upload | Ctrl-X: Delete | Ctrl-O: Open in Browser
+s3://${BUCKET}:${PREFIX:-/}" \
+            --header-first \
+            --multi \
+            --delimiter ':' \
+            --bind 'F2:toggle-preview' \
+            --bind 'ctrl-y:execute-silent(echo -n {1} | pbcopy)' \
+            --bind "ctrl-o:execute-silent(open '${S3_URL}{}')" \
+            --bind "ctrl-u:execute-silent(echo '${S3_URL}{}' | pbcopy)" \
+            --expect ctrl-g,ctrl-l,ctrl-x
+    ))
+
+    case "${S3_KEYS[1]}" in
+        "")
+            break
+            ;;
+        ctrl-l)
+            shift S3_KEYS
+            upload_to_s3
+            ;;
+        ctrl-g)
+            shift S3_KEYS
+            download_from_s3
+            ;;
+        ctrl-x)
+            shift S3_KEYS
+            delete_from_s3
+            ;;
+        ..)
+            export PREFIX=$(echo "${PREFIX}" | sed 's/[^\/]*\/$//')
+            ;;
+        */)
+            export PREFIX="${PREFIX}${S3_KEYS}"
+            ;;
+        *)
+            echo ${S3_KEYS}
+            ;;
+    esac
+done
