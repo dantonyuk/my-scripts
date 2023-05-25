@@ -2,14 +2,53 @@
 
 if [ -z ${AWS_PROFILE} ]
 then
-    source aws-profile
+    if [[ "$1" != "profile" ]]
+    then
+        source aws-profile
+    fi
 fi
 
-AWS_COMMAND=${AWS_COMMAND:-/opt/homebrew/bin/aws}
+AWSCLI_COMMAND=""
+AWSCLI_SUBCOMMAND=""
+OPTIONS=()
+# skip options, find a command and a subcommand
+for arg in "$@"
+do
+    if [[ $arg == -* ]]
+    then
+        OPTIONS+=(${arg})
+        continue
+    fi
+    if [[ "${AWSCLI_COMMAND}" == "" ]]
+    then
+        AWSCLI_COMMAND=${arg}
+    elif [[ "${AWSCLI_SUBCOMMAND}" == "" ]]
+    then
+        AWSCLI_SUBCOMMAND=${arg}
+    fi
+done
+
+if [[ "${AWSCLI_DEBUG}" != "" ]]
+then
+    echo "Executing aws ${AWSCLI_COMMAND} ${AWSCLI_SUBCOMMAND} ${OPTIONS[@]}"
+fi
+
+if command -v aws-${AWSCLI_COMMAND}-${AWSCLI_SUBCOMMAND} &> /dev/null
+then
+    AWS_COMMAND=aws-${AWSCLI_COMMAND}-${AWSCLI_SUBCOMMAND}
+    AWSCLI_OPTIONS=("${OPTIONS[@]}")
+elif command -v aws-${AWSCLI_COMMAND} &> /dev/null 
+then
+    AWS_COMMAND=aws-${AWSCLI_COMMAND}
+    AWSCLI_OPTIONS=("${OPTIONS[@]}")
+else
+    AWS_COMMAND=${AWS_COMMAND:-/opt/homebrew/bin/aws}
+    AWSCLI_OPTIONS=("$@")
+fi
 
 if command -v aws-vault &> /dev/null
 then
-  aws-vault exec ${AWS_PROFILE} -- ${AWS_COMMAND} $@
+  aws-vault exec ${AWS_PROFILE} -- ${AWS_COMMAND} "${AWSCLI_OPTIONS[@]}"
 else
-  ${AWS_COMMAND} $@
+  ${AWS_COMMAND} "${AWSCLI_OPTIONS[@]}"
 fi
