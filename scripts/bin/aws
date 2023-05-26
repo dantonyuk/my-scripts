@@ -1,6 +1,7 @@
 #!/bin/zsh
 
-if [ -z ${AWS_PROFILE} ]
+AWS_PROFILE=${AWS_PROFILE:-${AWS_VAULT}}
+if [ -z "${AWS_PROFILE}" ]
 then
     if [[ "$1" != "profile" ]]
     then
@@ -53,6 +54,7 @@ fi
 
 if command -v aws-vault &> /dev/null
 then
+  unset AWS_VAULT
   aws-vault exec ${AWS_PROFILE} -- ${AWS_COMMAND} "${AWSCLI_OPTIONS[@]}"
 else
   ${AWS_COMMAND} "${AWSCLI_OPTIONS[@]}"
