@@ -1,5 +1,5 @@
 #!/bin/bash
-#
+
 if [ -z ${AWS_PROFILE} ]; then
     source aws-profile
 fi
