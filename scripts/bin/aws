@@ -42,7 +42,12 @@ then
     AWS_COMMAND=aws-${AWSCLI_COMMAND}
     AWSCLI_OPTIONS=("${OPTIONS[@]}")
 else
-    AWS_COMMAND=${AWS_COMMAND:-/opt/homebrew/bin/aws}
+    if [ -z "${AWS_COMMAND}" ]
+    then
+        [ -f /opt/homebrew/bin/aws ] && export AWS_COMMAND=/opt/homebrew/bin/aws
+        [ -f /usr/bin/aws ] && export AWS_COMMAND=/usr/bin/aws
+        [ -f /usr/local/bin/aws ] && export AWS_COMMAND=/usr/local/bin/aws
+    fi
     AWSCLI_OPTIONS=("$@")
 fi
 

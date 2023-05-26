@@ -1,4 +1,10 @@
 #!/bin/zsh
 
-AWS_PROG=/opt/homebrew/bin/aws
-export AWS_PROFILE=$(${AWS_PROG} configure list-profiles | fzf --height 40% --layout=reverse --prompt="AWS Profile: ")
+if [ -z "${AWS_COMMAND}" ]
+then
+    [ -f /opt/homebrew/bin/aws ] && export AWS_COMMAND=/opt/homebrew/bin/aws
+    [ -f /usr/bin/aws ] && export AWS_COMMAND=/usr/bin/aws
+    [ -f /usr/local/bin/aws ] && export AWS_COMMAND=/usr/local/bin/aws
+fi
+
+export AWS_PROFILE=$(${AWS_COMMAND} configure list-profiles | fzf --height 40% --layout=reverse --prompt="AWS Profile: ")
