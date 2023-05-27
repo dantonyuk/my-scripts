@@ -1,8 +1,4 @@
 #!/bin/bash
 
-if [ -z ${AWS_PROFILE} ]; then
-    source aws-profile
-fi
-
 AWS_REGION=${AWS_REGION:-$(aws configure list | grep region | awk '{print $2}')}
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
