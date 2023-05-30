@@ -36,6 +36,7 @@ then
     exit
 fi
 
+REPOSITORY_URL="https://${AWS_REGION}.console.aws.amazon.com/codesuite/codeartifact/d/${AWS_ACCOUNT_ID}/${DOMAIN}/r/${REPOSITORY}/p/maven"
 VERSIONS=($(
     (
         for FULL_PACKAGE in ${PACKAGES[@]}
