@@ -1,0 +1,55 @@
+#!/bin/bash
+
+set -e
+
+BRANCH=${1:-$(git branch --show-current)}
+COMMITS=( $(git rev-list --no-merges master..${BRANCH}) )
+
+# Save current work if needed
+git diff-index --quiet HEAD --
+[ $? -ne 0 ] && set NEED_STASH=1
+if [ -n "$NEED_STASH" ]; then
+    git stash push -m "todev temporary stash"
+fi
+
+# "Hard pull" env/dev
+git checkout env/dev
+git fetch origin env/dev
+git reset --hard origin/env/dev
+
+git rev-list --no-merges --reverse master..${BRANCH} | git cherry-pick --no-commit --allow-empty --stdin
+git commit -m "Cherry-picked from ${BRANCH} ($(git rev-parse --short ${BRANCH}))
+
+$(git log --oneline --no-merges master..${BRANCH})
+"
+
+QUIT=0
+while [ $QUIT -eq 0 ]; do
+    echo
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Show [D]iff | [P]ush to env/dev | [Cancel] cherry-picking | [Q]uit"
+    read -p "Pick your choice (d/p/c/q): " COMMAND
+    echo
+    case ${COMMAND} in
+        [Pp]*)
+            git push origin env/dev
+            QUIT=1
+            ;;
+        [Dd]*)
+            git diff origin/env/dev
+            ;;
+        [Cc]*)
+            git reset --hard origin/env/dev
+            QUIT=1
+            ;;
+        [Qq]*)
+            QUIT=1
+            ;;
+    esac
+done
+
+# Restore current work if needed
+git checkout ${BRANCH}
+if [ -n "$NEED_STASH" ]; then
+    git stash pop
+fi
