@@ -32,6 +32,7 @@ then
         git push --set-upstream origin ${TARGET_BRANCH}
     else
         git checkout ${TARGET_BRANCH}
+        git pull
     fi
 
     EXISTS_REMOTELY=$(git ls-remote --heads origin ${TARGET_BRANCH})
