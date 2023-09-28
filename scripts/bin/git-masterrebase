@@ -1,0 +1,7 @@
+#!/bin/bash
+
+DEFAULT_BRANCH=$(git default-branch)
+BRANCH=${1:-$DEFAULT_BRANCH}
+
+CURRENT=$(git current)
+git checkout $BRANCH && git pull --all && git co $CURRENT && git rebase $BRANCH
