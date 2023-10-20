@@ -1,0 +1,28 @@
+#!/bin/bash
+
+source __aws-common
+
+AWS_REGION=${AWS_REGION:-$(aws configure list | grep region | awk '{print $2}')}
+
+REPOSITORIES=$(
+    aws ecr describe-repositories \
+        --query 'repositories[].[repositoryName]' --output text)
+
+if [ -z "${REPOSITORIES}" ]
+then
+    echo "No repositories found in the account"
+    exit 1
+fi
+
+REPOSITORIES=$(echo "${REPOSITORIES}" | \
+    fzf --prompt "Pick a repository> ")
+
+if [ -z "${REPOSITORIES}" ]
+then
+    exit
+fi
+
+IMAGES=$(aws ecr describe-images \
+        --repository-name ${REPOSITORIES} \
+        --query 'imageDetails[].[imageTags.join(`"\n"`,@)]' --output text | \
+        fzf --prompt "Pick an image> ")
