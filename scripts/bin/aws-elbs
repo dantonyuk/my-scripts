@@ -75,7 +75,7 @@ do
     SELECTED_INSTANCE_IDS=($(echo ${INSTANCE_IDS} | sort | \
         fzf --prompt="Select instance: " --layout=reverse --ansi \
             --preview-window=down:25 \
-            --preview="aws ec2 describe-instances --instance-ids {1} --query 'Reservations[].Instances[]' --output table" \
+            --preview="aws ec2 describe-instances --instance-ids '{1}' --query 'Reservations[].Instances[]' --output table" \
             --header "Enter: Select Instance(s) | Del: Terminate Instance(s) | Ctrl-O: Open in Browser | Ctrl-R: Refresh" \
             --header-first \
             --multi \
